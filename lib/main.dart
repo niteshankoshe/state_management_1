@@ -14,24 +14,74 @@ const List<String> urls1 = [
   "https://assets.entrepreneur.com/content/3x2/2000/20190612193425-GettyImages-1066987316-crop.jpeg?width=700&crop=2:1"
 ];
 
-class App extends StatelessWidget {
+class App extends StatefulWidget {
+  @override
+  AppState createState() => AppState();
+}
+
+class AppState extends State<App> {
+  bool isTagging = false;
+  List<PhotoState> photoStates = List.of(urls1.map((url) => PhotoState(url)));
+
+  void toggleTagging(String url) {
+    setState(() {
+      isTagging = !isTagging;
+      photoStates.forEach((element) {
+        if (isTagging && element.url == url) {
+          element.selected = true;
+        } else {
+          element.selected = false;
+        }
+      });
+    });
+  }
+
+  void onPhotoSelect(String url, bool selected) {
+    setState(() {
+      photoStates.forEach((element) {
+        if (element.url == url) {
+          element.selected = selected;
+        }
+      });
+    });
+  }
+
   @override
   Widget build(BuildContext contect) {
     return MaterialApp(
       title: 'Photo Viewer',
       home: GalleryPage(
         title: 'Image Gallery',
-        urls: urls1,
+        photoStates: photoStates,
+        tagging: isTagging,
+        toggleTagging: toggleTagging,
+        onPhotoSelect: onPhotoSelect,
       ),
     );
   }
 }
 
+class PhotoState {
+  String url;
+  bool selected;
+
+  PhotoState(this.url, {this.selected = false});
+}
+
 class GalleryPage extends StatelessWidget {
   final String title;
-  final List<String> urls;
+  final List<PhotoState> photoStates;
+  final bool tagging;
 
-  GalleryPage({this.title, this.urls});
+  final Function toggleTagging;
+  final Function onPhotoSelect;
+
+  GalleryPage(
+      {this.title,
+      this.photoStates,
+      this.tagging,
+      this.toggleTagging,
+      this.onPhotoSelect});
 
   @override
   Widget build(BuildContext context) {
@@ -42,38 +92,55 @@ class GalleryPage extends StatelessWidget {
       body: GridView.count(
         primary: false,
         crossAxisCount: 2,
-        children: List.of(urls.map((url) => Photo(url: url))),
+        children: List.of(photoStates.map((ps) => Photo(
+              state: ps,
+              selectable: tagging,
+              onLongPress: toggleTagging,
+              onSelect: onPhotoSelect,
+            ))),
       ),
     );
   }
 }
 
-class Photo extends StatefulWidget {
-  final String url;
-  Photo({this.url});
+class Photo extends StatelessWidget {
+  final PhotoState state;
+  final bool selectable;
+  final Function onLongPress;
+  final Function onSelect;
 
-  @override
-  PhotoState createState() => PhotoState(url: this.url);
-}
-
-class PhotoState extends State<Photo> {
-  String url;
-  int index = 0;
-
-  PhotoState({this.url});
-
-  onTap() {
-    setState(() {
-      index >= urls1.length - 1 ? index = 0 : index++;
-    });
-    url = urls1[index];
-  }
+  Photo({this.state, this.selectable, this.onLongPress, this.onSelect});
 
   @override
   Widget build(BuildContext context) {
+    List<Widget> children = [
+      GestureDetector(
+        child: Image(image: NetworkImage(state.url)),
+        onLongPress: () => onLongPress(state.url),
+      )
+    ];
+    if (selectable) {
+      children.add(Positioned(
+          left: 20,
+          top: 0,
+          child: Theme(
+              data: Theme.of(context)
+                  .copyWith(unselectedWidgetColor: Colors.grey[200]),
+              child: Checkbox(
+                onChanged: (value) {
+                  onSelect(state.url, value);
+                },
+                value: state.selected,
+                activeColor: Colors.blue,
+                checkColor: Colors.black,
+              ))));
+    }
     return Container(
       padding: EdgeInsets.only(top: 10),
-      child: GestureDetector(child: Image.network(url), onTap: onTap),
+      child: Stack(
+        alignment: Alignment.center,
+        children: children,
+      ),
     );
   }
 }
